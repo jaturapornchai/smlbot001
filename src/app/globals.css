@@ -1,26 +1,259 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --border-color: rgba(226, 232, 240, 0.8);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #090d16;
+  --foreground: #f1f5f9;
+  --card-bg: rgba(15, 23, 42, 0.75);
+  --border-color: rgba(255, 255, 255, 0.08);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+}
+
+/* Premium Motion Graphics & Keyframe Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; filter: blur(20px); transform: scale(1); }
+  50% { opacity: 0.8; filter: blur(28px); transform: scale(1.08); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 6s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
+
+/* Cybernetic Grid & Ambient Background */
+.bg-grid-pattern {
+  background-image: radial-gradient(rgba(99, 102, 241, 0.15) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.dark .bg-grid-pattern {
+  background-image: radial-gradient(rgba(129, 140, 248, 0.12) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Glassmorphism Card Style */
+.glass-panel {
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .glass-panel {
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Baseline-First Utilities */
+.baseline-center {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+/* ===== Premium Motion UX ===== */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.995); filter: blur(2px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes stream-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes pulse-wave {
+  0%, 100% { transform: scaleY(0.3); opacity: 0.5; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes live-ping {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  100% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+.animate-fade-in { animation: fade-in 0.25s ease-out both; }
+/* สลับโหมด Monitor / สั่งการ / Live VM */
+.animate-view-in { animation: view-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* Live Data Stream: log/ข้อความไหลเข้าทีละรายการ (ใช้ animation-delay จาก style) */
+.animate-stream-in { animation: stream-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Radar Scanner: วงเรดาร์ + ลำแสงกวาด (radar-sweep) */
+.radar-scanner {
+  position: relative;
+  display: inline-block;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background:
+    repeating-radial-gradient(circle, transparent 0 26%, rgba(16, 185, 129, 0.22) 27% 29%),
+    rgba(16, 185, 129, 0.06);
+  box-shadow: 0 0 14px -2px rgba(16, 185, 129, 0.45);
+}
+.radar-scanner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, rgba(16, 185, 129, 0.6), transparent 28%);
+  animation: radar-sweep 2.4s linear infinite;
+}
+.radar-scanner::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 9999px;
+  background: rgb(16, 185, 129);
+  z-index: 1;
+}
+
+/* Dynamic Pulse Wave: AI กำลังคิด (สีตาม currentColor) */
+.pulse-wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+}
+.pulse-wave i {
+  width: 2px;
+  height: 100%;
+  border-radius: 2px;
+  background: currentColor;
+  animation: pulse-wave 0.9s ease-in-out infinite;
+}
+.pulse-wave i:nth-child(2) { animation-delay: 0.1s; }
+.pulse-wave i:nth-child(3) { animation-delay: 0.2s; }
+.pulse-wave i:nth-child(4) { animation-delay: 0.3s; }
+.pulse-wave i:nth-child(5) { animation-delay: 0.4s; }
+
+.live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.live-dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgb(16, 185, 129);
+  animation: live-ping 1.4s ease-out infinite;
+}
+
+/* Ambient Neon Glow บนการ์ดสถานะ/log เวลา hover */
+.neon-card {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+}
+.neon-card:hover {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25), 0 0 24px -6px rgba(99, 102, 241, 0.55);
+}
+.dark .neon-card:hover {
+  border-color: rgba(129, 140, 248, 0.45);
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.25), 0 0 28px -6px rgba(129, 140, 248, 0.5);
+}
+
+/* Ripple: วงแสงขยายจากกลางปุ่มตอนกด (CSS ล้วน ไม่ต้องใช้ overflow:hidden จึงไม่ตัด tooltip) */
+.btn-ripple { position: relative; }
+.btn-ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.45) 10%, transparent 10.01%) center / 1000% 1000% no-repeat;
+  opacity: 0;
+  transition: background-size 0.5s, opacity 0.8s;
+}
+.btn-ripple:active::after {
+  background-size: 0 0;
+  opacity: 1;
+  transition: 0s;
+}
+
+/* Floating Tooltip: ใส่ data-tip="ข้อความ" บน element */
+[data-tip] { position: relative; }
+[data-tip]::before {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 6px);
+  transform: translate(-50%, -4px);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(23, 23, 23, 0.92);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 60;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.dark [data-tip]::before {
+  background: rgba(245, 245, 245, 0.95);
+  color: #171717;
+}
+[data-tip]:hover::before,
+[data-tip]:focus-visible::before {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

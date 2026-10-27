@@ -1,0 +1,21 @@
+services:
+  smlbot:
+    build: .
+    container_name: smlbot-console
+    restart: unless-stopped
+    ports:
+      - "3400:3400"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/smlsoft/smlbot/data:/app/data
+      - /home/smlsoft/smlbot/bots:/home/smlsoft/smlbot/bots
+    environment:
+      - NODE_ENV=production
+      - PORT=3400
+      - TZ=Asia/Bangkok
+      - USE_SSH_DOCKER=false
+      - BROKER_REDIS_HOST=${BROKER_REDIS_HOST}
+      - BROKER_REDIS_PORT=${BROKER_REDIS_PORT:-6379}
+      - BROKER_REDIS_PASSWORD=${BROKER_REDIS_PASSWORD}
+      - BROKER_KAFKA_HOST=${BROKER_KAFKA_HOST}
+      - AUTONOMOUS_SCHEDULER=${AUTONOMOUS_SCHEDULER:-on}

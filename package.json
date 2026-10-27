@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "ioredis": "^6.0.0",
+    "kafkajs": "^2.2.4",
+    "lucide-react": "^1.62.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0"
