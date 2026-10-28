@@ -9,7 +9,9 @@ import { getAllBots, getBotById, updateBot } from './bot-store';
 const execAsync = util.promisify(exec);
 
 const REMOTE_HOST = process.env.REMOTE_DOCKER_HOST || 'smlsoft@192.168.2.88';
-const IS_REMOTE = process.env.NODE_ENV !== 'production' || process.env.USE_SSH_DOCKER === 'true';
+// Windows: cmd.exe ไม่รู้จัก quote แบบ POSIX ('name=smlbot-') และ path /home/... ใช้ไม่ได้ → สั่งผ่าน SSH เหมือนโหมด dev
+const IS_REMOTE =
+  process.env.NODE_ENV !== 'production' || process.env.USE_SSH_DOCKER === 'true' || process.platform === 'win32';
 // path เดียวกันทั้งบนโฮสต์และใน smlbot-console (docker-compose mount ไว้ตรงกัน)
 const BOTS_DIR = '/home/smlsoft/smlbot/bots';
 const START_PORT = 50001;

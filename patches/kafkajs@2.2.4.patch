@@ -1,0 +1,16 @@
+diff --git a/src/network/requestQueue/index.js b/src/network/requestQueue/index.js
+index eee14d66c3869d90f7bac0ac755ecbad3f2a2741..005307a9ca5db847f0811dfe6cb8ae2f47a427d1 100644
+--- a/src/network/requestQueue/index.js
++++ b/src/network/requestQueue/index.js
+@@ -304,6 +304,11 @@ module.exports = class RequestQueue extends EventEmitter {
+    * the pending request queue eventually.
+    */
+   scheduleCheckPendingRequests() {
++    // smlbot patch (tulios/kafkajs#1751): ไม่มีงานค้างและไม่ถูก throttle → ไม่ต้องตั้ง timer
++    // เดิมตั้ง setTimeout ค่าติดลบวนไม่หยุด (~900 ครั้ง/วิ ต่อ connection) + Node 23+ เตือน TimeoutNegativeWarning
++    // ปลอดภัย: push() ตั้ง timer ใหม่เองทุกครั้งที่มีคำขอเข้าคิว
++    if (this.pending.length === 0 && this.throttledUntil <= Date.now()) return
++
+     // If we're throttled: Schedule checkPendingRequests when the throttle
+     // should be resolved. If there is already something scheduled we assume that that
+     // will be fine, and potentially fix up a new timeout if needed at that time.

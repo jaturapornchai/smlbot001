@@ -115,13 +115,18 @@ sequenceDiagram
   participant U as ผู้ใช้
   participant Cmd as ผู้บัญชาการ SML
   participant API as /api/broker
-  participant K as Kafka smlbot.tasks
+  participant K as Kafka (Cloud Hub)
+  participant Dst as บอทปลายทาง
   U->>Cmd: "ส่งภารกิจให้ bot-xxx ว่า ..."
   Cmd-->>U: ตอบ + คำสั่ง [[DISPATCH:botId|งาน]]
   alt requireApproval = true
     U->>API: กด "อนุมัติและส่งภารกิจ"
   end
   API->>K: publish (topic smlbot.tasks)
+  K->>Dst: Console ปลายทาง (hub-node) รับงาน
+  Dst->>Dst: บอทปลายทางเรียก AI ทำภารกิจจริง + ลงฟีดกิจกรรม
+  Dst->>K: ส่งผลกลับ (smlbot.messages, action task_result)
+  K->>Cmd: ผลภารกิจขึ้นฟีดกิจกรรมของผู้สั่ง
 ```
 
 ---
@@ -135,7 +140,8 @@ sequenceDiagram
    - **Live VM**: เปิดหน้า Agent Zero ของบอทนั้น (มีปุ่ม Fullscreen/รีเฟรช)
 4. **Autonomous 24/7**: เปิดที่แผงควบคุม (Inspector) แล้วตั้งความถี่ (นาที) กับเป้าหมาย ตัวจับเวลาจะเช็กทุก 60 วินาทีว่าบอทตัวไหนถึงรอบแล้ว
 5. **ทีมทำงานร่วม**: สร้างกลุ่มโดยกำหนดหัวหน้า ลูกทีม และโหมด แล้วสั่งงานในห้องทีม ถ้าบอทร่าง Action Draft มา ให้กดอนุมัติในห้องนั้น
-6. **ข้ามจังหวัด**: สั่งงานให้บอทตามรูปแบบ `[[DISPATCH:<botId>|<งาน>]]` ถ้าเปิด requireApproval ไว้ ระบบจะรอให้กดอนุมัติก่อนส่ง
+6. **ข้ามจังหวัด**: สั่งงานให้บอทตามรูปแบบ `[[DISPATCH:<botId>|<งาน>]]` ถ้าเปิด requireApproval ไว้ ระบบจะรอให้กดอนุมัติก่อนส่ง Console ที่มีบอทปลายทางจะรับงานจาก Kafka ไปให้บอททำจริง แล้วส่งผลกลับเข้าฟีดกิจกรรมของบอทผู้สั่ง (`src/lib/hub-node.ts`)
+7. **Heartbeat**: ใน production เซิร์ฟเวอร์จะส่ง heartbeat ของบอทในเครื่องเข้า Cloud Hub ทุก 30 วินาที บอทจึงออนไลน์ให้จังหวัดอื่นเห็นตลอด แม้ไม่มีใครเปิดหน้าเว็บ
 
 ---
 
@@ -152,7 +158,10 @@ sequenceDiagram
 | `AUTONOMOUS_SCHEDULER` | `off` = ปิดตัวจับเวลา Autonomous (ทำงานเฉพาะ production) | `on` |
 | `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` | Key ตั้งต้นของแต่ละ Provider (ตั้งผ่านหน้าเว็บแทนได้) | ว่าง |
 | `LOCAL_GLM_URL` / `LOCAL_KIMI_URL` | URL ของ Local Proxy ในวง LAN | `http://127.0.0.1:8077/v1`, `:8078/v1` |
-| `USE_SSH_DOCKER` | `true` = สั่ง Docker ผ่าน SSH ไปที่เซิร์ฟเวอร์หลัก | `false` ใน compose |
+| `BROKER_NODE` | `off` = ไม่ส่ง heartbeat และไม่รับภารกิจ (ใช้ตอนทดสอบในเครื่อง) | `on` |
+| `BROKER_NODE_ID` | ชื่อโหนดของ Console นี้ ใช้เป็น Kafka consumer group ต้องไม่ซ้ำกันในแต่ละจังหวัด | `core` |
+| `BROKER_PROVINCE` | จังหวัดที่แสดงใน Cloud Hub | `นนทบุรี / กรุงเทพฯ (Local Core)` |
+| `USE_SSH_DOCKER` | `true` = สั่ง Docker ผ่าน SSH ไปที่เซิร์ฟเวอร์หลัก (โหมด dev และ Windows ใช้ SSH อัตโนมัติ) | `false` ใน compose |
 | `REMOTE_DOCKER_HOST` | `user@host` สำหรับโหมด SSH Docker | ดู `src/lib/vm-orchestrator.ts` |
 
 ข้อมูลระบบเก็บเป็นไฟล์ JSON ใน `data/` (ใน Docker คือ volume `/home/smlsoft/smlbot/data`) ได้แก่ `bots.json`, `groups.json`, `ai-providers.json` ไฟล์พวกนี้มี API Key อยู่ จึงถูก gitignore และ dockerignore ไว้
@@ -228,9 +237,9 @@ curl -X POST http://localhost:3000/api/bots -H "Content-Type: application/json" 
 
 ## Limitation
 - **API ยังไม่มีระบบยืนยันตัวตน**: ใช้ได้เฉพาะในวง LAN หรือหลัง VPN/Reverse Proxy ที่มี auth เท่านั้น ห้ามเปิดออกอินเทอร์เน็ตตรง
-- **ยังไม่มีตัวรับงานฝั่ง `smlbot.tasks`**: Console ส่งภารกิจเข้า Kafka ได้แล้ว แต่ยังไม่มี consumer ที่ดึงงานไปให้บอทปลายทางทำอัตโนมัติ
+- **รับภารกิจทีละงาน**: ตัวรับงานทำงานทีละข้อความ และ commit offset หลังทำเสร็จ จึงไม่ทำงานหาย แต่ถ้ามีงานเข้ามาพร้อมกันมาก งานจะต่อคิว
+- **ภารกิจไม่ส่งต่อเป็นทอด**: ถ้าบอทปลายทางตอบกลับด้วยคำสั่ง DISPATCH ระบบจะไม่ส่งต่อให้ เพื่อกันงานวนไม่จบ
 - **Clone เป็นช่องรับงานพร้อมกัน**: AI ยังประมวลผลที่ Console เป็นหลัก ส่วน Clone container มีไว้ขยายช่องทำงานและแสดงสถานะ
 - **Autonomous เรียก AI จริงตามรอบ** จึงมีค่าใช้จ่าย ปิดได้ด้วย `AUTONOMOUS_SCHEDULER=off`
 - **โมเดลของ xAI** ใช้รหัสโมเดลตามที่ xAI กำหนด จึงขึ้นอยู่กับรุ่นที่ xAI เปิดให้ใช้อยู่ตอนนั้น
-- **สั่ง Docker แบบ local บน Windows** ไม่รองรับ เพราะคำสั่งใช้ quoting แบบ Linux ให้รัน Console บน Linux หรือใช้โหมด SSH Docker แทน
-- รันโหมด dev จะส่ง heartbeat ของบอทเข้า Cloud Hub registry จริง (TTL 90 วินาที)
+- **ทดสอบ production build ในเครื่อง** (`next start`) ให้ตั้ง `BROKER_NODE=off` ไม่งั้น Console ในเครื่องจะเข้าร่วม Cloud Hub จริง

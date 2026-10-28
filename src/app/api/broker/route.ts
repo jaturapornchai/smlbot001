@@ -7,28 +7,10 @@ import {
   registerBotHeartbeat,
   sendCrossProvinceMessage,
 } from '@/lib/broker-hub';
-import { getAllBots } from '@/lib/bot-store';
-
-const LOCAL_PROVINCE = 'นนทบุรี / กรุงเทพฯ (Local Core)';
 
 export async function GET() {
   try {
-    // ส่ง Heartbeat ของบอทในเครื่องก่อน แล้วค่อยอ่าน registry เพื่อให้เห็นตัวเองตั้งแต่ครั้งแรก
-    await Promise.all(
-      getAllBots().map((b) =>
-        registerBotHeartbeat(b.id, {
-          botName: b.name,
-          province: LOCAL_PROVINCE,
-          status: b.isBusy ? 'busy' : 'online',
-          meta: {
-            workMode: b.workMode,
-            modelName: b.modelName,
-            vmPort: b.vmConfig?.hostPort,
-          },
-        })
-      )
-    );
-
+    // heartbeat ของบอทในเครื่องส่งจากฝั่งเซิร์ฟเวอร์ทุก 30 วิ (src/lib/hub-node.ts) ไม่ต้องรอมีคนเปิดหน้าเว็บ
     const [status, nodes] = await Promise.all([getBrokerStatus(), getRegisteredNodes()]);
 
     // ไม่มีข้อมูลจำลอง: Redis หลุด = nodes ว่าง + broker.redis.error บอกสาเหตุจริง

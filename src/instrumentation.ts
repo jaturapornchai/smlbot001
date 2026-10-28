@@ -8,6 +8,12 @@ export async function register() {
   const { resetStaleBusyState } = await import('./lib/vm-orchestrator');
   resetStaleBusyState();
 
+  // โหนด Cloud Hub (heartbeat + รับภารกิจข้ามจังหวัด) — ทดสอบในเครื่องให้ตั้ง BROKER_NODE=off กันปน registry/งานจริง
+  if (process.env.BROKER_NODE !== 'off') {
+    const { startHubNode } = await import('./lib/hub-node');
+    startHubNode();
+  }
+
   if (process.env.AUTONOMOUS_SCHEDULER === 'off') return;
   const { runGlobalAutonomousTick } = await import('./lib/autonomous-engine');
   // ทุก 60 วิ: เช็กว่าบอทตัวไหนถึงรอบ (autonomousIntervalMinutes) แล้วค่อยเรียก AI — tick ซ้อนถูกกันใน engine

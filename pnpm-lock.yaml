@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  kafkajs@2.2.4:
+    hash: cdc7eed2d91edc5c1a698589c8c870f3553412cedbc499a2a9b0b79b489475e3
+    path: patches/kafkajs@2.2.4.patch
+
 importers:
 
   .:
@@ -13,7 +18,7 @@ importers:
         version: 6.0.0
       kafkajs:
         specifier: ^2.2.4
-        version: 2.2.4
+        version: 2.2.4(patch_hash=cdc7eed2d91edc5c1a698589c8c870f3553412cedbc499a2a9b0b79b489475e3)
       lucide-react:
         specifier: ^1.62.0
         version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
@@ -3569,7 +3574,7 @@ snapshots:
       object.assign: 4.1.7
       object.values: 1.2.1
 
-  kafkajs@2.2.4: {}
+  kafkajs@2.2.4(patch_hash=cdc7eed2d91edc5c1a698589c8c870f3553412cedbc499a2a9b0b79b489475e3): {}
 
   keyv@4.5.4:
     dependencies:
