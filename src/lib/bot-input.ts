@@ -186,17 +186,23 @@ export function validateGroupInput(body: unknown): Result<GroupInput> {
   });
 }
 
+// ประหยัด token: ตัดประวัติทิ้งทีละก้อน 6 ข้อความ (ไม่เลื่อนทีละข้อความ) → ต้นบทสนทนาคงเดิมหลายรอบติดกัน
+// DeepSeek คิดส่วนที่ซ้ำกับคำขอก่อนเป็น cache hit (~2% ของราคาปกติ) ถ้าเลื่อนทีละข้อความ cache จะพลาดทุกรอบ
+const HISTORY_MAX = 10;
+const HISTORY_STEP = 6;
+const HISTORY_MSG_CHARS = 1500; // คำตอบเก่ายาว ๆ ส่งแค่ช่วงต้นพอให้ AI รู้บริบท
+
 /** ข้อความแชท: กัน message ไม่ใช่ string / history ยาวไม่จำกัดจนเกิน context ของโมเดล */
 export function validateChatInput(body: unknown): Result<{ message: string; history: Array<{ sender: string; content: string }> }> {
   return run(body, (b) => {
     const message = text(b, 'message', 'ข้อความ', 8000, true)!;
     const raw = Array.isArray(b.history) ? b.history : [];
-    const history = raw
+    const kept = raw
       .filter((h): h is { sender: string; content: string } =>
         !!h && typeof h === 'object' && typeof (h as any).content === 'string' && typeof (h as any).sender === 'string')
-      .filter((h) => h.sender !== 'system')
-      .slice(-20)
-      .map((h) => ({ sender: h.sender, content: h.content.slice(0, 8000) }));
+      .filter((h) => h.sender !== 'system');
+    const start = Math.max(0, Math.ceil((kept.length - HISTORY_MAX) / HISTORY_STEP) * HISTORY_STEP);
+    const history = kept.slice(start).map((h) => ({ sender: h.sender, content: h.content.slice(0, HISTORY_MSG_CHARS) }));
     return { message, history };
   });
 }

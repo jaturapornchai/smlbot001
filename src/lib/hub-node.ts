@@ -86,7 +86,7 @@ async function runIncomingTask(fromBotId: string, toBotId: string, task: string)
           fallbackProviderId: bot.fallbackProviderId,
           fallbackModelName: bot.fallbackModelName,
           temperature: bot.temperature,
-          maxTokens: bot.maxTokens,
+          maxTokens: Math.min(bot.maxTokens || 1024, 1024), // สั่งให้ตอบสั้นอยู่แล้ว เพดานกันตอบยาวเกิน
           systemPrompt: bot.systemPrompt,
           messages: [
             {

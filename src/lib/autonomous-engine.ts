@@ -20,15 +20,10 @@ export async function runAutonomousCycleForBot(botId: string): Promise<BotActivi
 
   const now = new Date();
 
-  const autonomousPrompt = `คุณคือ ${bot.name} (บทบาท: ${bot.role}) กำลังปฏิบัติการในระบบ SML Bot แบบ Autonomous 24/7 อัตโนมัติ 100%
-เป้าหมายภารกิจต่อเนื่องของคุณคือ:
-"${bot.autonomousGoal || bot.description || 'ตรวจสอบความพร้อมและบริหารจัดการงานประจำบทบาท'}"
-
-คำสั่งกำกับพฤติกรรมหลัก:
-"${bot.systemPrompt}"
-
-คำแนะนำ:
-จงประมวลผลภารกิจรอบนี้ตามเป้าหมาย ตรวจสอบเงื่อนไข วิเคราะห์สิ่งที่ต้องทำ และสรุปผลการปฏิบัติการรอบนี้สั้นๆ 2-3 บรรทัด (ภาษาไทย สรุปกระชับ ตรงไปตรงมา เพื่อให้มนุษย์ที่เข้ามามอนิเตอร์อ่านเข้าใจได้ทันที)`;
+  // ประหยัด token: systemPrompt ของบอทไปอยู่ช่อง system (ต้นเดียวกับแชท/ภารกิจ → DeepSeek นับ cache hit) คำสั่งรอบนี้สั้นที่สุด
+  const autonomousPrompt = `[รอบอัตโนมัติ 24/7] คุณคือ ${bot.name} (${bot.role})
+เป้าหมายต่อเนื่อง: "${bot.autonomousGoal || bot.description || 'ตรวจสอบความพร้อมและบริหารจัดการงานประจำบทบาท'}"
+ปฏิบัติภารกิจรอบนี้ แล้วสรุปผลภาษาไทย 2-3 บรรทัด สั้น ตรงไปตรงมา`;
 
   let resultSummary = '';
   let status: 'success' | 'warning' | 'error' = 'success';
@@ -45,8 +40,8 @@ export async function runAutonomousCycleForBot(botId: string): Promise<BotActivi
         fallbackProviderId: bot.fallbackProviderId,
         fallbackModelName: bot.fallbackModelName,
         temperature: bot.temperature,
-        maxTokens: 512,
-        systemPrompt: 'คุณคือบอทอัจฉริยะในโหมด Autonomous 24/7 ปฏิบัติการอัตโนมัติ ตอบภาษาไทย สั้น ตรงประเด็น',
+        maxTokens: 300, // สรุป 2-3 บรรทัด: เพดานต่ำกันตอบยาวเกิน (output แพงกว่า input 4 เท่า)
+        systemPrompt: bot.systemPrompt,
         messages: [{ role: 'user', content: autonomousPrompt }],
       })
     );

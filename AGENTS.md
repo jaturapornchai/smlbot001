@@ -46,3 +46,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   - **คนแค่มาดู (Monitor & Audit)**: มอนิเตอร์ดูเรดาห์งานสด (Live Activity Log Feed) รายงานผลการทำงาน และสถานะของระบบ
   - **กำหนดค่า (Configure Parameters)**: กำหนดรอบความถี่ (นาที), สมองกลหลัก/สำรอง, และจำนวน Clone สูงสุด
   - **ปรับปรุงคำสั่ง (Refine Prompts & Directives)**: ขัดเกลา System Prompt และเป้าหมายภารกิจ (Goal) ให้บอททำงานเฉียบคมขึ้นอย่างต่อเนื่อง
+
+## 7. 📤 กฎก่อน Push GitHub (ลุงจืดตั้ง 2026-10-28)
+- **ก่อน `git push` ทุกครั้ง ต้องอัปเดต `README.md` ให้ตรงกับโค้ดล่าสุดเสมอ**: ฟีเจอร์ / Config (env) / API / Limitation / ภาพประกอบ ที่เปลี่ยนในงานนั้น แล้ว commit README ไปพร้อมกัน
+- ถ้าตรวจแล้ว README ไม่ต้องแก้ ให้แจ้งลุงจืดว่า "README ตรงกับโค้ดล่าสุดแล้ว" ก่อน push

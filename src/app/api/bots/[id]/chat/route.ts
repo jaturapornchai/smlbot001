@@ -9,6 +9,8 @@ import { BotMessage } from '@/types/bot';
 // บอทสั่งงานข้ามจังหวัดด้วยการพิมพ์ directive นี้ในคำตอบ → console ส่งเข้า Kafka topic smlbot.tasks จริง
 const DISPATCH_RE = /\[\[DISPATCH:([a-zA-Z0-9_.-]{1,120})\|([^\]]{1,500})\]\]/g;
 const MAX_DISPATCH_PER_REPLY = 5;
+// ponytail: เดาจากคำในข้อความ — ไม่มีคำพวกนี้ = ไม่แนบรายชื่อโหนด (ประหยัด token ทุกข้อความ) ถ้าส่งงานพลาดบ่อยค่อยเพิ่มคำ
+const WANTS_DISPATCH_RE = /ส่ง|สั่ง|มอบหมาย|ฝาก|ภารกิจ|จังหวัด|สาขา|บอท|dispatch|bot/i;
 
 // Redis หลุด: ioredis จะ retry ก่อน fail (~10 วิ) → ไม่ให้แชทรอนาน ตัดที่ 2 วิแล้วคุยต่อแบบไม่มีรายชื่อโหนด
 async function loadRemoteNodes(selfId: string): Promise<BrokerNodeInfo[]> {
@@ -43,13 +45,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     const userMessage = input.message;
 
-    const nodes = await loadRemoteNodes(bot.id);
+    const nodes = WANTS_DISPATCH_RE.test(userMessage) ? await loadRemoteNodes(bot.id) : [];
+    // รายชื่อโหนดเปลี่ยนตลอด (สถานะ online/busy) → แนบท้ายข้อความล่าสุด ไม่ใส่ใน systemPrompt
+    // ให้ systemPrompt + history เป็นต้น prompt เดิมทุกรอบ = DeepSeek นับ cache hit
     const aiMessages = [
       ...input.history.map((h) => ({
         role: h.sender === 'user' ? ('user' as const) : ('assistant' as const),
         content: h.content,
       })),
-      { role: 'user' as const, content: userMessage },
+      { role: 'user' as const, content: userMessage + dispatchGuide(nodes) },
     ];
 
     let replyContent = '';
@@ -69,7 +73,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           fallbackModelName: bot.fallbackModelName,
           temperature: bot.temperature,
           maxTokens: bot.maxTokens,
-          systemPrompt: bot.systemPrompt + dispatchGuide(nodes),
+          systemPrompt: bot.systemPrompt,
           messages: aiMessages,
         });
         replyContent = aiResponse.content;

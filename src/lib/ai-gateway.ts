@@ -60,6 +60,9 @@ export async function callAIModel(request: AICallRequest): Promise<AICallRespons
     const content = choice?.message?.content || choice?.text || '';
     // คำตอบว่าง = ใช้งานไม่ได้ ต้องโยน error ให้ cascade ไปหาตัวถัดไป (เดิมส่งข้อความว่างกลับไปเงียบ ๆ)
     if (!String(content).trim()) throw new Error('AI ตอบกลับว่างเปล่า');
+    // ดู token ที่ใช้จริงได้จาก log — DeepSeek แยก prompt_cache_hit_tokens (ส่วนที่คิดราคา cache ~2%)
+    const u = data.usage;
+    if (u) console.info(`[AI Usage] ${provider.name} ${payload.model}: in ${u.prompt_tokens ?? '-'} (cache ${u.prompt_cache_hit_tokens ?? '-'}) out ${u.completion_tokens ?? '-'}`);
 
     return {
       content,

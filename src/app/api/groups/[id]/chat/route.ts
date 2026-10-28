@@ -48,7 +48,7 @@ export async function POST(
         fallbackProviderId: leaderBot.fallbackProviderId,
         fallbackModelName: leaderBot.fallbackModelName,
         temperature: leaderBot.temperature,
-        maxTokens: 1024,
+        maxTokens: 512, // สมาชิกอ่านแค่ 500 ตัวอักษรแรกของคำสั่งหัวหน้า
         systemPrompt: leaderSystemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       });
@@ -80,14 +80,12 @@ export async function POST(
 
     // 2. สมาชิกผู้เชี่ยวชาญในทีมร่วมตอบสนองตามบทบาทจริง (Real AI Calls with Cascade Fallback)
     const specialists = memberBots.filter((b) => b.id !== leaderBot.id);
-    let lastSpecialistReply = '';
+    const specialistReplies: string[] = [];
 
     for (let i = 0; i < Math.min(specialists.length, 2); i++) {
       const specialist = specialists[i];
       const specialistSystemPrompt = `${specialist.systemPrompt}
-คุณคือ ${specialist.name} บทบาทคือ "${specialist.role}" อยู่ในทีม "${group.name}"
-หัวหน้าทีม (${leaderBot.name}) สั่งการในโจทย์ของลุงจืดดังนี้:
-"${leaderReply.slice(0, 500)}"
+คุณคือ ${specialist.name} บทบาทคือ "${specialist.role}" อยู่ในทีม "${group.name}" รับคำสั่งจากหัวหน้าทีม (${leaderBot.name}) ในโจทย์ของลุงจืด
 ในฐานะผู้เชี่ยวชาญด้าน ${specialist.role} จงให้ข้อมูล การวิเคราะห์ หรือขั้นตอนที่ต้องทำในส่วนของคุณอย่างเฉียบคม ตอบภาษาไทย สั้น ชัดเจน`;
 
       try {
@@ -98,12 +96,12 @@ export async function POST(
           fallbackProviderId: specialist.fallbackProviderId,
           fallbackModelName: specialist.fallbackModelName,
           temperature: specialist.temperature,
-          maxTokens: 1024,
+          maxTokens: 512,
           systemPrompt: specialistSystemPrompt,
-          messages: [{ role: 'user', content: `ภารกิจจากหัวหน้า: ${leaderReply.slice(0, 400)}` }],
+          messages: [{ role: 'user', content: `ภารกิจจากหัวหน้า: ${leaderReply.slice(0, 500)}` }],
         });
 
-        lastSpecialistReply = specResult.content;
+        specialistReplies.push(`${specialist.name}: ${specResult.content.slice(0, 300)}`);
         responses.push({
           id: `msg-${Date.now()}-spec-${i}`,
           groupId: group.id,
@@ -131,12 +129,10 @@ export async function POST(
     }
 
     // 3. Leader สรุปผลภาพรวมและเตรียม Action Draft จริง
-    if (specialists.length > 0 && lastSpecialistReply) {
+    if (specialistReplies.length) {
       const summaryPrompt = `${leaderBot.systemPrompt}
 คุณคือหัวหน้าทีม "${group.name}"
-สรุปผลการทำงานร่วมกันของทีมจากข้อมูลที่สมาชิกตอบกลับ:
-"${lastSpecialistReply.slice(0, 500)}"
-จงสรุปข้อสรุปสุดท้ายสำหรับลุงจืดสั้นๆ 1-3 บรรทัด และแจ้งความพร้อมในการลงมือทำ`;
+จงสรุปข้อสรุปสุดท้ายจากผลงานของสมาชิกสำหรับลุงจืดสั้นๆ 1-3 บรรทัด และแจ้งความพร้อมในการลงมือทำ`;
 
       try {
         const summaryResult = await callAIWithCascadeFallback({
@@ -146,9 +142,9 @@ export async function POST(
           fallbackProviderId: leaderBot.fallbackProviderId,
           fallbackModelName: leaderBot.fallbackModelName,
           temperature: leaderBot.temperature,
-          maxTokens: 512,
+          maxTokens: 256,
           systemPrompt: summaryPrompt,
-          messages: [{ role: 'user', content: 'ขอสรุปแนวทางปฏิบัติการสุดท้ายของทีม' }],
+          messages: [{ role: 'user', content: `ผลการทำงานจากสมาชิก:\n${specialistReplies.join('\n')}` }],
         });
 
         responses.push({
