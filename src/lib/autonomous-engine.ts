@@ -1,7 +1,31 @@
 import { getAllBots, getBotById, updateBot } from './bot-store';
 import { callAIWithCascadeFallback } from './ai-gateway';
 import { getVMStatus, startVM, withBotSlot } from './vm-orchestrator';
-import { BotActivityLog } from '@/types/bot';
+import { createHash } from 'crypto';
+import { BotActivityLog, BotProperty } from '@/types/bot';
+
+// Autonomous เขียน log 3 ชนิดนี้เอง → ไม่นับเป็นเหตุการณ์ใหม่ ไม่งั้นจะปลุกตัวเองทุกรอบ
+const OWN_LOG_TYPES = new Set<BotActivityLog['actionType']>(['autonomous_run', 'failover', 'clone_spawn']);
+const MAX_EVENTS_IN_PROMPT = 5;
+
+const goalOf = (bot: BotProperty) => bot.autonomousGoal || bot.description || 'ตรวจสอบความพร้อมและบริหารจัดการงานประจำบทบาท';
+
+// ลุงจืดแก้เป้าหมาย/คำสั่งบอท = งานใหม่ (ใช้ updatedAt ไม่ได้ เพราะ updateBot ขยับทุกครั้งที่บันทึก busy/log)
+const promptHash = (bot: BotProperty) =>
+  createHash('sha1').update(JSON.stringify([bot.name, bot.role, goalOf(bot), bot.systemPrompt])).digest('hex').slice(0, 16);
+
+function newEventsSince(bot: BotProperty): BotActivityLog[] {
+  const since = bot.lastAutonomousRunAt ? Date.parse(bot.lastAutonomousRunAt) : 0;
+  return (bot.activityLogs || []).filter((l) => !OWN_LOG_TYPES.has(l.actionType) && Date.parse(l.timestamp) > since);
+}
+
+// ประหยัด token: ไม่มีงาน/เหตุการณ์ใหม่ = prompt เหมือนรอบก่อนทุกตัวอักษร ผลก็ซ้ำเดิม → ไม่ต้องเรียก AI
+const hasNewWork = (bot: BotProperty) => promptHash(bot) !== bot.autonomousPromptHash || newEventsSince(bot).length > 0;
+
+function nextRunAt(bot: BotProperty, now: Date): string {
+  const intervalMinutes = Math.min(1440, Math.max(1, bot.autonomousIntervalMinutes || 15));
+  return new Date(now.getTime() + intervalMinutes * 60 * 1000).toISOString();
+}
 
 export interface AutonomousTickResult {
   timestamp: string;
@@ -21,9 +45,11 @@ export async function runAutonomousCycleForBot(botId: string): Promise<BotActivi
   const now = new Date();
 
   // ประหยัด token: systemPrompt ของบอทไปอยู่ช่อง system (ต้นเดียวกับแชท/ภารกิจ → DeepSeek นับ cache hit) คำสั่งรอบนี้สั้นที่สุด
+  const events = newEventsSince(bot).slice(0, MAX_EVENTS_IN_PROMPT);
+  const eventText = events.length ? `\nเหตุการณ์ใหม่ตั้งแต่รอบก่อน:\n${events.map((e) => `- ${e.summary}`).join('\n')}` : '';
   const autonomousPrompt = `[รอบอัตโนมัติ 24/7] คุณคือ ${bot.name} (${bot.role})
-เป้าหมายต่อเนื่อง: "${bot.autonomousGoal || bot.description || 'ตรวจสอบความพร้อมและบริหารจัดการงานประจำบทบาท'}"
-ปฏิบัติภารกิจรอบนี้ แล้วสรุปผลภาษาไทย 2-3 บรรทัด สั้น ตรงไปตรงมา`;
+เป้าหมายต่อเนื่อง: "${goalOf(bot)}"
+ปฏิบัติภารกิจรอบนี้ แล้วสรุปผลภาษาไทย 2-3 บรรทัด สั้น ตรงไปตรงมา${eventText}`;
 
   let resultSummary = '';
   let status: 'success' | 'warning' | 'error' = 'success';
@@ -57,8 +83,7 @@ export async function runAutonomousCycleForBot(botId: string): Promise<BotActivi
     status = 'error';
   }
 
-  const intervalMinutes = Math.min(1440, Math.max(1, bot.autonomousIntervalMinutes || 15));
-  const nextRun = new Date(now.getTime() + intervalMinutes * 60 * 1000).toISOString();
+  const nextRun = nextRunAt(bot, now);
 
   const activityLog: BotActivityLog = {
     id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -78,6 +103,7 @@ export async function runAutonomousCycleForBot(botId: string): Promise<BotActivi
   updateBot(bot.id, {
     lastAutonomousRunAt: now.toISOString(),
     nextAutonomousRunAt: nextRun,
+    autonomousPromptHash: promptHash(bot),
     activityLogs: updatedLogs,
     stats: {
       ...latest.stats,
@@ -153,6 +179,7 @@ async function runTick(forceAll: boolean): Promise<AutonomousTickResult> {
   allLogs.push(...healLogs);
 
   let tasksExecuted = 0;
+  let skippedIdle = 0;
 
   // 2. รันรอบงานของบอทที่เปิดโหมด Autonomous
   for (const bot of bots) {
@@ -165,6 +192,14 @@ async function runTick(forceAll: boolean): Promise<AutonomousTickResult> {
       new Date(bot.nextAutonomousRunAt).getTime() <= now.getTime();
     if (!isDue) continue;
 
+    // อ่านใหม่: Self-Healing ด้านบนอาจเพิ่ม log; กดรันเอง (forceAll) = ลุงจืดสั่ง ไม่ข้าม
+    if (!forceAll && !hasNewWork(getBotById(bot.id) || bot)) {
+      // ponytail: ไม่เขียน log รอบที่ข้าม (จะดัน log จริงตกจาก 20 รายการล่าสุด) เลื่อนรอบถัดไปอย่างเดียว
+      updateBot(bot.id, { nextAutonomousRunAt: nextRunAt(bot, now) });
+      skippedIdle++;
+      continue;
+    }
+
     try {
       const log = await runAutonomousCycleForBot(bot.id);
       if (log) {
@@ -175,6 +210,8 @@ async function runTick(forceAll: boolean): Promise<AutonomousTickResult> {
       console.error(`Autonomous cycle error for bot ${bot.name}:`, e.message);
     }
   }
+
+  if (skippedIdle) console.info(`[Autonomous] ข้าม ${skippedIdle} บอท: ไม่มีงาน/เหตุการณ์ใหม่ (ไม่เรียก AI)`);
 
   return {
     timestamp: now.toISOString(),

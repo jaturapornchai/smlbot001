@@ -60,6 +60,7 @@ export interface BotProperty {
   autonomousGoal: string; // เป้าหมายภารกิจที่ต้องทำอัตโนมัติต่อเนื่อง
   lastAutonomousRunAt?: string;
   nextAutonomousRunAt?: string;
+  autonomousPromptHash?: string; // ลายนิ้วมือเป้าหมาย/คำสั่งตอนรันรอบล่าสุด: เปลี่ยน = มีงานใหม่
   activityLogs?: BotActivityLog[]; // ประวัติกิจกรรมและการปฏิบัติภารกิจจริง
 
   // สถานะคิวงาน และการ Clone อัตโนมัติ (Dynamic Scaling)
